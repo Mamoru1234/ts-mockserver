@@ -1,9 +1,10 @@
 import axios from 'axios';
 import SockJs from 'sockjs-client';
-import { SerializedRequest } from './ExpressRequestUtils';
+import { RequestNotification, SerializedRequest, SerializedResponse } from './ExpressUtils';
+import { pullAt } from 'lodash';
 
 export type RequestMatcher = (req: SerializedRequest) => boolean;
-export type ResponseProducer = (req: SerializedRequest) => any;
+export type ResponseProducer = (req: SerializedRequest) => SerializedResponse;
 
 export interface MockItem {
   matcher: RequestMatcher;
@@ -14,9 +15,9 @@ export const urlMatcher = (url: string) => (req: SerializedRequest) => req.url =
 
 export class MockServerClient {
   private socket?: WebSocket;
-  private serverUrl: string;
+  private readonly serverUrl: string;
   private mockItems: MockItem[] = [];
-  private _responses: {[callbackId: string]: () => any} = {};
+  private error?: Error;
   constructor(
     private _port: number,
   ) {
@@ -24,31 +25,35 @@ export class MockServerClient {
   }
   public init(): Promise<void> {
     return new Promise((res) => {
-      this.socket = new SockJs(`${this.serverUrl}/notifications`);
-      this.socket.onopen = () => res();
-      this.socket.onerror = (e) => {
+      const socket = new SockJs(`${this.serverUrl}/notifications`);
+      socket.onopen = () => {
+        this.socket = socket;
+        res();
+      };
+      socket.onerror = (e) => {
         console.error('Socket error: ', e);
       };
-      this.socket.onclose = () => {
-        console.log('Closed');
+      socket.onclose = () => {
+        this.socket = undefined;
       };
-      this.socket.onmessage = (mes: MessageEvent) => {
+      socket.onmessage = (mes: MessageEvent) => {
         console.log('Notification received: ', mes.data);
-        const { requestId, request } = JSON.parse(mes.data);
-        this.mockItems.some((item) => {
-          const match = item.matcher(request);
-          if (!match) {
-            return false;
-          }
-          const response = item.producer(request);
-          axios.put(`${this.serverUrl}/response`, {
-            requestId,
-            response,
-          }).catch((e) => {
-            console.log('Response error: ', e);
+        const notification: RequestNotification = JSON.parse(mes.data);
+        const { request, requestId } = notification.payload;
+        const matchedItemInd = this.mockItems.findIndex((item) => item.matcher(request));
+        if (matchedItemInd === -1) {
+          this.sendResponse(requestId, {
+            status: 404,
+            body: {
+              reason: 'Not found',
+            },
           });
-          return true;
-        });
+          return;
+        }
+        const item = this.mockItems[matchedItemInd];
+        pullAt(this.mockItems, matchedItemInd);
+        const response = item.producer(request);
+        this.sendResponse(requestId, response);
       };
     });
   }
@@ -59,6 +64,21 @@ export class MockServerClient {
     });
   }
   public close() {
-    this.socket!.close();
+    if (!this.socket) {
+      throw new Error('Mock server already closed');
+    }
+    if (this.error) {
+      throw this.error;
+    }
+    this.socket.close();
+  }
+  private sendResponse(requestId: string, response: SerializedResponse) {
+    axios.put(`${this.serverUrl}/response`, {
+      requestId,
+      response,
+    }).catch((e: Error) => {
+      console.log('Response error: ', e);
+      this.error = e;
+    });
   }
 }
