@@ -1,9 +1,11 @@
 import { MockServerClient, urlMatcher } from './MockServerClient';
 import axios from 'axios';
 
-const mockClient = new MockServerClient(3045);
-
-const timer = (amount: number) => new Promise((res) => setTimeout(res, amount));
+const mockClient = new MockServerClient({
+  controlPort: 3045,
+  mockPort: 3046,
+  startTimeout: 10000,
+});
 
 (async () => {
   await mockClient.init();
@@ -15,7 +17,7 @@ const timer = (amount: number) => new Promise((res) => setTimeout(res, amount));
   }));
   const response = await axios.get(`http://localhost:3046/test`);
   console.log(response.data);
-  mockClient.close();
+  await mockClient.close();
 })().catch((e) => {
   console.error('Error during main: ', e);
 });
