@@ -1,4 +1,3 @@
-import { Request } from 'express';
 import { IncomingHttpHeaders, OutgoingHttpHeaders } from 'http';
 
 export enum NotificationType {
@@ -26,13 +25,4 @@ export interface SerializedResponse {
   status?: number;
   body?: any;
   headers?: OutgoingHttpHeaders;
-}
-
-export function serializeRequest(req: Request): SerializedRequest {
-  return {
-    headers: req.headers,
-    method: req.method,
-    url: req.url,
-    body: req.body,
-  };
 }

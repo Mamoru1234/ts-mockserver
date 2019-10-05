@@ -1,8 +1,8 @@
 import axios from 'axios';
 import SockJs from 'sockjs-client';
-import { RequestNotification, SerializedRequest, SerializedResponse } from './ExpressUtils';
+import { RequestNotification, SerializedRequest, SerializedResponse } from './MockServerDto';
 import { pullAt } from 'lodash';
-import { ChildProcess, exec } from 'child_process';
+import { execSync } from 'child_process';
 
 export type RequestMatcher = (req: SerializedRequest) => boolean;
 export type ResponseProducer = (req: SerializedRequest) => SerializedResponse;
@@ -26,15 +26,14 @@ export class MockServerClient {
   private readonly serverUrl: string;
   private mockItems: MockItem[] = [];
   private error?: Error;
-  private serverProcess?: ChildProcess;
   constructor(
     private _config: MockClientConfig,
   ) {
     this.serverUrl = `http://localhost:${this._config.controlPort}`;
   }
-  public init(): Promise<void> {
-    return this.initServer()
-      .then(() => this.initSocket());
+  public async init(): Promise<void> {
+    await this.initServer();
+    await this.initSocket();
   }
   public async mockResponse(matcher: RequestMatcher, producer: ResponseProducer) {
     this.mockItems.push({
@@ -61,20 +60,19 @@ export class MockServerClient {
       this.error = e;
     });
   }
+  private portMapping(port: number) {
+    return `-p ${port}:${port}`
+  }
   private initServer(): Promise<void> {
-    this.serverProcess = exec('npx ts-node ./server.ts', {
-      cwd: __dirname,
-      env: {
-        CONTROL_PORT: this._config.controlPort + '',
-        MOCK_PORT: this._config.mockPort + '',
-      }
-    }, (e: Error | null, stdout: string, stderr: string) => {
-      if (e) {
-        console.log('stdout: ', stdout);
-        console.log('stderr: ', stderr);
-      }
-      this.serverProcess = undefined;
-    });
+    const config = this._config;
+    const image = 'alexeigontarcyber/mockserver:0.1.0';
+    let env = '';
+    env += ` -e CONTROL_PORT=${config.controlPort}`;
+    env += ` -e MOCK_PORT=${config.mockPort}`;
+    const command = `docker run -d ${this.portMapping(config.controlPort)} ${this.portMapping(config.mockPort)} ${env} ${image}`;
+    console.log('Executing command: ', command);
+    execSync(command);
+    console.log('Executed');
     return this.waitServer();
   }
   private initSocket(): Promise<void> {
@@ -97,8 +95,8 @@ export class MockServerClient {
     });
   }
   private socketMessageHandler = (mes: MessageEvent) => {
-    console.log('Notification received: ', mes.data);
     const notification: RequestNotification = JSON.parse(mes.data);
+    console.log('Notification received: ', notification);
     const { request, requestId } = notification.payload;
     const matchedItemInd = this.mockItems.findIndex((item) => item.matcher(request));
     if (matchedItemInd === -1) {

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "pretty": true,
+    "outDir": "build/server"
+  },
+  "exclude": [
+    "build/**",
+    "examples/**",
+    "src/MockServerClient.ts",
+    "src/sample-test.ts"
+  ]
+}

@@ -2,12 +2,9 @@ import { Connection } from 'sockjs';
 import { Request, Response } from 'express';
 import { has, uniqueId, forEach } from 'lodash';
 import {
-  MockNotification,
-  NotificationType,
-  RequestNotification,
-  SerializedResponse,
   serializeRequest,
 } from './ExpressUtils';
+import { MockNotification, NotificationType, RequestNotification, SerializedResponse } from './MockServerDto';
 
 export class ControlService {
   private _session?: Connection;

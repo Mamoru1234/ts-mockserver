@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "pretty": true,
+    "declaration": true,
+    "outDir": "build/client"
+  },
+  "include": [
+    "src/MockServerClient.ts",
+    "src/MockServerDto.ts"
+  ]
+}

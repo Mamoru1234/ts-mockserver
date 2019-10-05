@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "buildClient": "./scripts/buildClient.sh",
+    "buildClientPack": "./scripts/buildClientPack.sh",
+    "buildServer": "./scripts/buildServer.sh",
+    "buildServerImage": "./scripts/buildServerImage.sh 0.1.0"
   },
   "keywords": [],
   "author": "",

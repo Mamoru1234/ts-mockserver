@@ -1,0 +1,24 @@
+{
+  "name": "simple-jest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^12.7.11",
+    "@types/node-fetch": "^2.5.2",
+    "mockserver-client": "file:../../build/client/mockserver-client-0.1.0.tgz",
+    "node-fetch": "^2.6.0",
+    "typescript": "^3.6.3"
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.18",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.1.0"
+  }
+}
