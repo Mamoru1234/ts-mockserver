@@ -11,6 +11,10 @@ export class ControlService {
   private _pendingResponses: {[requestId: string]: Response} = {};
 
   public registerConnection(conn: Connection) {
+    if (this._session) {
+      conn.close('4567', 'Only one control socket allowed');
+      return;
+    }
     conn.once('close', () => {
       this._session = undefined;
     });

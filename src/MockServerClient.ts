@@ -1,18 +1,20 @@
 import axios from 'axios';
 import SockJs from 'sockjs-client';
 import { RequestNotification, SerializedRequest, SerializedResponse } from './MockServerDto';
-import { pullAt } from 'lodash';
+import { uniqueId } from 'lodash';
 import { execSync } from 'child_process';
 
 export type RequestMatcher = (req: SerializedRequest) => boolean;
 export type ResponseProducer = (req: SerializedRequest) => SerializedResponse;
 
 export interface MockItem {
+  id: string;
   matcher: RequestMatcher;
   producer: ResponseProducer;
+  matchCount: number;
+  countToRemove: number;
 }
 
-export const urlMatcher = (url: string) => (req: SerializedRequest) => req.url === url;
 const timer = (amount: number) => new Promise((res) => setTimeout(res, amount));
 
 export interface MockClientConfig {
@@ -24,7 +26,8 @@ export interface MockClientConfig {
 export class MockServerClient {
   private socket?: WebSocket;
   private readonly serverUrl: string;
-  private mockItems: MockItem[] = [];
+  private activeMocks: MockItem[] = [];
+  private mocks: {[id: string]: MockItem} = {};
   private error?: Error;
   constructor(
     private _config: MockClientConfig,
@@ -35,11 +38,17 @@ export class MockServerClient {
     await this.initServer();
     await this.initSocket();
   }
-  public async mockResponse(matcher: RequestMatcher, producer: ResponseProducer) {
-    this.mockItems.push({
+  public mockResponse(matcher: RequestMatcher, producer: ResponseProducer): MockItem {
+    const mockItem: MockItem = {
+      id: uniqueId('matcher'),
       producer,
       matcher,
-    });
+      countToRemove: 1,
+      matchCount: 0,
+    };
+    this.mocks[mockItem.id] = mockItem;
+    this.activeMocks.push(mockItem);
+    return mockItem;
   }
   public async close(): Promise<void> {
     if (!this.socket) {
@@ -98,8 +107,8 @@ export class MockServerClient {
     const notification: RequestNotification = JSON.parse(mes.data);
     console.log('Notification received: ', notification);
     const { request, requestId } = notification.payload;
-    const matchedItemInd = this.mockItems.findIndex((item) => item.matcher(request));
-    if (matchedItemInd === -1) {
+    const matchedItem = this.activeMocks.find((item) => item.matcher(request));
+    if (matchedItem == null) {
       this.sendResponse(requestId, {
         status: 404,
         body: {
@@ -108,9 +117,11 @@ export class MockServerClient {
       });
       return;
     }
-    const item = this.mockItems[matchedItemInd];
-    pullAt(this.mockItems, matchedItemInd);
-    const response = item.producer(request);
+    matchedItem.matchCount++;
+    if (matchedItem.matchCount === matchedItem.countToRemove) {
+      this.activeMocks = this.activeMocks.filter((item) => item.id !== matchedItem.id);
+    }
+    const response = matchedItem.producer(request);
     this.sendResponse(requestId, response);
   }
   private async waitServer(): Promise<void> {

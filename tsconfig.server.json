@@ -8,6 +8,7 @@
     "build/**",
     "examples/**",
     "src/MockServerClient.ts",
+    "src/MockServerMatchers.ts",
     "src/sample-test.ts"
   ]
 }
